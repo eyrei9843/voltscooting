@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full bg-slate-950 text-white">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Scooter 1st Person Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { margin: 0; overflow: hidden; user-select: none; font-family: 'Inter', sans-serif; }
+        canvas { width: 100vw; height: 100vh; display: block; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .touch-btn {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .scooter-hud-glow {
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.25);
+        }
+    </style>
+</head>
+<body class="h-full overflow-hidden bg-black text-white selection:bg-cyan-500">
+
+    <!-- WebGL Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+    <!-- MAIN GARAGE & MENU OVERLAY -->
+    <div id="garage-ui" class="absolute inset-0 z-20 flex flex-col justify-between p-4 md:p-8 pointer-events-auto overflow-y-auto">
+        <!-- Top Navigation / Header -->
+        <div class="flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-3 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid fa-bolt-lightning text-2xl text-black font-black"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-black tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-400 to-amber-400">
+                        SCOOTER TUNING 3D
+                    </h1>
+                    <p class="text-xs text-gray-400">Roblox "Drive a Kukurin" Arcade Physics Edition</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <div class="glass-panel px-5 py-2.5 rounded-2xl flex items-center space-x-3 border border-yellow-500/30">
+                    <i class="fa-solid fa-coins text-yellow-400 text-xl"></i>
+                    <div>
+                        <div class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">MÜNZEN</div>
+                        <div id="garage-coins" class="text-xl font-black text-yellow-400">2,500</div>
+                    </div>
+                </div>
+                <button onclick="startGame()" class="px-8 py-3.5 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 font-black text-base uppercase tracking-wider rounded-2xl shadow-lg shadow-cyan-500/40 transform hover:scale-105 active:scale-95 transition-all">
+                    <i class="fa-solid fa-play mr-2"></i> FAHREN
+                </button>
+            </div>
+        </div>
+
+        <!-- Middle Section: Scooter Selection & Tuning Controls -->
+        <div class="my-auto py-6 grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl w-full mx-auto">
+            
+            <!-- Scooter Selection List -->
+            <div class="glass-panel p-5 rounded-3xl space-y-4">
+                <h2 class="text-sm font-black tracking-widest text-cyan-400 uppercase flex items-center gap-2">
+                    <i class="fa-solid fa-motorcycle"></i> WÄHLE DEINEN SCOOTER
+                </h2>
+
+                <div class="space-y-3">
+                    <!-- Dualtron Thunder 3 -->
+                    <div id="card-thunder3" onclick="selectScooter('thunder3')" class="scooter-card p-4 rounded-2xl border-2 border-cyan-500 bg-cyan-950/30 hover:border-cyan-400 cursor-pointer transition-all relative">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-black text-lg text-white">DUALTRON THUNDER 3</div>
+                                <div class="text-xs text-cyan-300">72V 40Ah • Dual Motor 11KW</div>
+                            </div>
+                            <i class="check-icon fa-solid fa-circle-check text-cyan-400 text-xl"></i>
+                        </div>
+                        <div class="mt-2 flex items-center space-x-2 text-xs text-gray-300">
+                            <span class="bg-black/50 px-2 py-0.5 rounded text-amber-400 font-bold">110 KM/H</span>
+                            <span class="bg-black/50 px-2 py-0.5 rounded text-gray-400">Extrem Wheelie</span>
+                        </div>
+                    </div>
+
+                    <!-- Kukurin G4 / G2 -->
+                    <div id="card-kukurinG4" onclick="selectScooter('kukurinG4')" class="scooter-card p-4 rounded-2xl border-2 border-transparent bg-slate-900/60 hover:border-cyan-500/50 cursor-pointer transition-all relative">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-black text-lg text-white">KUGOO KUKURIN G4 / G2</div>
+                                <div class="text-xs text-orange-400">60V 20Ah • Offroad Beast</div>
+                            </div>
+                            <i class="check-icon fa-solid fa-circle-check text-cyan-400 text-xl hidden"></i>
+                        </div>
+                        <div class="mt-2 flex items-center space-x-2 text-xs text-gray-300">
+                            <span class="bg-black/50 px-2 py-0.5 rounded text-amber-400 font-bold">85 KM/H</span>
+                            <span class="bg-black/50 px-2 py-0.5 rounded text-gray-400">Perfekt Agil</span>
+                        </div>
+                    </div>
+
+                    <!-- Teverun Blade Mini -->
+                    <div id="card-bladeMini" onclick="selectScooter('bladeMini')" class="scooter-card p-4 rounded-2xl border-2 border-transparent bg-slate-900/60 hover:border-cyan-500/50 cursor-pointer transition-all relative">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-black text-lg text-white">TEVERUN BLADE MINI</div>
+                                <div class="text-xs text-emerald-400">48V 15.6Ah • City Cruiser</div>
+                            </div>
+                            <i class="check-icon fa-solid fa-circle-check text-cyan-400 text-xl hidden"></i>
+                        </div>
+                        <div class="mt-2 flex items-center space-x-2 text-xs text-gray-300">
+                            <span class="bg-black/50 px-2 py-0.5 rounded text-amber-400 font-bold">70 KM/H</span>
+                            <span class="bg-black/50 px-2 py-0.5 rounded text-gray-400">Sehr Leicht</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tuning & Stats Center Panel -->
+            <div class="glass-panel p-5 rounded-3xl space-y-5 lg:col-span-2 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-sm font-black tracking-widest text-amber-400 uppercase flex items-center gap-2">
+                            <i class="fa-solid fa-gears"></i> SCOOTER TUNING & UPGRADES
+                        </h2>
+                        <span id="selected-model-name" class="text-xs font-black bg-cyan-500/20 text-cyan-300 px-3 py-1 rounded-full border border-cyan-500/30">
+                            DUALTRON THUNDER 3
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Speed Upgrade -->
+                        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-2">
+                            <div class="flex justify-between text-xs font-bold">
+                                <span class="text-gray-300"><i class="fa-solid fa-gauge-high text-cyan-400 mr-1"></i> MAX SPEED</span>
+                                <span id="stat-speed-val" class="text-cyan-400">110 km/h</span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                                <div id="stat-speed-bar" class="bg-cyan-400 h-full w-2/3 transition-all"></div>
+                            </div>
+                            <div class="flex justify-between items-center pt-2">
+                                <span id="cost-speed" class="text-xs text-yellow-400 font-bold">300 Münzen</span>
+                                <button onclick="upgradeStat('speed')" class="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs rounded-xl transition-all">
+                                    UPGRADE
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Acceleration Upgrade -->
+                        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-2">
+                            <div class="flex justify-between text-xs font-bold">
+                                <span class="text-gray-300"><i class="fa-solid fa-bolt text-yellow-400 mr-1"></i> BESCHLEUNIGUNG</span>
+                                <span id="stat-accel-val" class="text-yellow-400">Stufe 1</span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                                <div id="stat-accel-bar" class="bg-yellow-400 h-full w-1/3 transition-all"></div>
+                            </div>
+                            <div class="flex justify-between items-center pt-2">
+                                <span id="cost-accel" class="text-xs text-yellow-400 font-bold">200 Münzen</span>
+                                <button onclick="upgradeStat('accel')" class="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs rounded-xl transition-all">
+                                    UPGRADE
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Underglow Light Tuning -->
+                    <div class="mt-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-3">
+                        <div class="text-xs font-bold text-gray-300 flex justify-between">
+                            <span><i class="fa-solid fa-lightbulb text-purple-400 mr-1"></i> RGB UNTERBODENBELEUCHTUNG</span>
+                            <span id="rgb-mode-text" class="text-purple-400 font-black">NEON CYAN</span>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button onclick="setRGBColor(0x00f0ff, 'NEON CYAN')" class="w-8 h-8 rounded-full bg-cyan-400 border-2 border-white/50 hover:scale-110 transition-all"></button>
+                            <button onclick="setRGBColor(0xff0055, 'PINK NEON')" class="w-8 h-8 rounded-full bg-pink-500 border-2 border-white/50 hover:scale-110 transition-all"></button>
+                            <button onclick="setRGBColor(0x00ff66, 'LIME GREEN')" class="w-8 h-8 rounded-full bg-emerald-400 border-2 border-white/50 hover:scale-110 transition-all"></button>
+                            <button onclick="setRGBColor(0xffaa00, 'AMBER GOLD')" class="w-8 h-8 rounded-full bg-amber-400 border-2 border-white/50 hover:scale-110 transition-all"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keyboard Controls Guide -->
+                <div class="mt-4 p-3 bg-black/40 rounded-2xl flex flex-wrap justify-around items-center text-xs text-gray-300 gap-2 border border-slate-800">
+                    <span><kbd class="px-2 py-1 bg-gray-800 rounded border border-gray-700 text-cyan-400 font-bold">W / ↑</kbd> Gashebel</span>
+                    <span><kbd class="px-2 py-1 bg-gray-800 rounded border border-gray-700 text-cyan-400 font-bold">S / ↓</kbd> Hydraulische Bremse</span>
+                    <span><kbd class="px-2 py-1 bg-gray-800 rounded border border-gray-700 text-cyan-400 font-bold">A / D</kbd> Links / Rechts Lenken</span>
+                    <span><kbd class="px-2 py-1 bg-gray-800 rounded border border-gray-700 text-yellow-400 font-bold">LEERTASTE</kbd> Wheelie ziehen!</span>
+                    <span><kbd class="px-2 py-1 bg-gray-800 rounded border border-gray-700 text-gray-300 font-bold">H</kbd> Hupe</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IN-GAME FIRST PERSON HUD -->
+    <div id="game-hud" class="absolute inset-0 z-10 hidden flex-col justify-between p-4 md:p-6 pointer-events-none">
+        
+        <!-- Top HUD Row -->
+        <div class="flex justify-between items-start w-full">
+            <!-- Digital Speedometer Dashboard -->
+            <div class="glass-panel px-6 py-4 rounded-3xl flex items-center space-x-6 border border-cyan-500/40 scooter-hud-glow">
+                <div class="text-center">
+                    <div id="hud-speed" class="text-5xl font-black italic text-cyan-400 tracking-tighter">0</div>
+                    <div class="text-[10px] text-gray-400 font-bold tracking-widest uppercase">KM/H</div>
+                </div>
+                <div class="h-12 w-px bg-gray-800"></div>
+                <div class="flex flex-col space-y-1">
+                    <div class="flex items-center space-x-2 text-xs font-bold text-gray-300">
+                        <i class="fa-solid fa-bolt text-yellow-400"></i>
+                        <span id="hud-battery-text">72V AKKU: 100%</span>
+                    </div>
+                    <div class="w-32 bg-gray-800 rounded-full h-2 overflow-hidden">
+                        <div id="hud-battery-bar" class="bg-green-400 h-full w-full transition-all"></div>
+                    </div>
+                    <div class="text-[10px] text-cyan-300 font-extrabold" id="hud-gear">DUAL MOTOR: TURBO</div>
+                </div>
+            </div>
+
+            <!-- Score & Coins -->
+            <div class="flex flex-col space-y-2 items-end">
+                <div class="glass-panel px-4 py-2 rounded-2xl flex items-center space-x-3">
+                    <i class="fa-solid fa-coins text-yellow-400 text-lg"></i>
+                    <span id="hud-coins" class="font-black text-xl text-yellow-400">0</span>
+                </div>
+                <div class="glass-panel px-4 py-1.5 rounded-xl text-right">
+                    <div class="text-[10px] text-gray-400 font-bold">STRECKE</div>
+                    <div id="hud-distance" class="text-base font-bold text-white">0 m</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wheelie Balance Indicator Center -->
+        <div id="wheelie-hud" class="self-center flex flex-col items-center transition-all opacity-0 transform scale-95">
+            <div class="text-xs font-black tracking-widest text-yellow-400 mb-1 flex items-center gap-1.5 uppercase drop-shadow">
+                <i class="fa-solid fa-fire text-orange-500"></i> EXTREM WHEELIE BALANCE
+            </div>
+            <div class="w-64 h-5 bg-black/70 border-2 border-white/20 rounded-full overflow-hidden relative flex items-center">
+                <div class="absolute w-16 h-full bg-green-500/40 border-x-2 border-green-400 left-1/2 transform -translate-x-1/2"></div>
+                <div id="wheelie-balance-bar" class="absolute top-0 bottom-0 w-2 bg-white rounded-full shadow-lg" style="left: 50%;"></div>
+            </div>
+            <div id="wheelie-score-popup" class="text-xs font-black text-yellow-300 mt-1">
+                +100 TRICK PUNKTE
+            </div>
+        </div>
+
+        <!-- Bottom Controls & Garage Return -->
+        <div class="flex justify-between items-end w-full">
+            <button onclick="returnToGarage()" class="pointer-events-auto glass-panel px-4 py-2.5 rounded-2xl text-xs font-bold text-gray-300 hover:text-white flex items-center space-x-2">
+                <i class="fa-solid fa-warehouse text-cyan-400"></i>
+                <span>GARAGE</span>
+            </button>
+
+            <!-- Touch Controls for Mobile / Handy First Person -->
+            <div class="pointer-events-auto flex items-center space-x-3">
+                <div class="flex space-x-2">
+                    <button id="btn-touch-left" class="touch-btn w-14 h-14 rounded-2xl glass-panel text-2xl flex items-center justify-center active:scale-95 transition-transform">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <button id="btn-touch-right" class="touch-btn w-14 h-14 rounded-2xl glass-panel text-2xl flex items-center justify-center active:scale-95 transition-transform">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+                <button id="btn-touch-wheelie" class="touch-btn w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-black font-black text-xs flex flex-col items-center justify-center shadow-lg active:scale-95 transition-transform">
+                    <i class="fa-solid fa-bolt text-lg mb-0.5"></i>
+                    <span>WHEELIE</span>
+                </button>
+                <div class="flex flex-col space-y-2">
+                    <button id="btn-touch-gas" class="touch-btn w-16 h-12 rounded-xl bg-cyan-500/80 text-white text-xl flex items-center justify-center active:scale-95 transition-transform">
+                        <i class="fa-solid fa-chevron-up"></i>
+                    </button>
+                    <button id="btn-touch-brake" class="touch-btn w-16 h-12 rounded-xl bg-red-500/80 text-white text-xl flex items-center justify-center active:scale-95 transition-transform">
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, clock;
+        let scooterCockpitGroup;
+        let handlebarsMesh = null;
+        let frontWheelMesh = null;
+        let riderLegMesh = null;
+
+        let gameState = 'GARAGE'; // 'GARAGE' or 'RACING'
+        let currentModel = 'thunder3';
+        let playerCoins = 2500;
+        let distanceTraveled = 0;
+        let gameScore = 0;
+        let batteryLevel = 100;
+
+        // Scooter Models Data Specs
+        const scooterConfigs = {
+            thunder3: {
+                name: "Dualtron Thunder 3",
+                baseSpeed: 110,
+                accel: 1.4,
+                color: 0x111111,
+                accentColor: 0xffcc00,
+                upgrades: { speedLvl: 1, accelLvl: 1 },
+                rgbColor: 0x00f0ff
+            },
+            kukurinG4: {
+                name: "Kukurin G4 / G2",
+                baseSpeed: 85,
+                accel: 1.2,
+                color: 0x1a1a1a,
+                accentColor: 0xff5500,
+                upgrades: { speedLvl: 1, accelLvl: 1 },
+                rgbColor: 0xff0055
+            },
+            bladeMini: {
+                name: "Teverun Blade Mini",
+                baseSpeed: 70,
+                accel: 1.5,
+                color: 0x222222,
+                accentColor: 0x00ffcc,
+                upgrades: { speedLvl: 1, accelLvl: 1 },
+                rgbColor: 0x00ff66
+            }
+        };
+
+        // Driving Physics state
+        let currentSpeed = 0;
+        let steerAngle = 0;
+        let wheelieAngle = 0;
+        let wheelieBalance = 0;
+        let isWheelieActive = false;
+        let playerX = 0;
+
+        // Input controls state
+        const keys = { up: false, down: false, left: false, right: false, space: false };
+
+        // Environment Containers
+        let roadSegments = [];
+        let trafficVehicles = [];
+        let coinPickups = [];
+
+        // Web Audio Synthesizer
+        let audioCtx = null;
+        let motorOsc = null, motorGain = null;
+
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                motorOsc = audioCtx.createOscillator();
+                motorGain = audioCtx.createGain();
+                motorOsc.type = 'sawtooth';
+                motorOsc.frequency.setValueAtTime(45, audioCtx.currentTime);
+                motorGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                motorOsc.connect(motorGain);
+                motorGain.connect(audioCtx.destination);
+                motorOsc.start();
+            } catch(e) { console.log(e); }
+        }
+
+        function updateAudio() {
+            if (!audioCtx || !motorGain) return;
+            if (gameState === 'RACING') {
+                const targetFreq = 45 + (Math.abs(currentSpeed) * 9);
+                const targetVol = Math.min(0.22, (Math.abs(currentSpeed) / 35) * 0.15 + 0.03);
+                motorOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+                motorGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.1);
+            } else {
+                motorGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        function playCoinSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1318.51, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function playHornSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function initThree() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x060911);
+            scene.fog = new THREE.FogExp2(0x060911, 0.014);
+
+            camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.05, 1000);
+            camera.position.set(0, 1.45, 0.2);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+
+            const ambientLight = new THREE.AmbientLight(0xddeeff, 0.5);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+            dirLight.position.set(30, 50, -20);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            const neonBlueLight = new THREE.PointLight(0x00f0ff, 2, 35);
+            neonBlueLight.position.set(-12, 6, 10);
+            scene.add(neonBlueLight);
+
+            scooterCockpitGroup = new THREE.Group();
+            scene.add(scooterCockpitGroup);
+
+            buildHighway();
+            rebuildCockpitModel();
+
+            window.addEventListener('resize', onWindowResize);
+            setupInputListeners();
+
+            animate();
+        }
+
+        function rebuildCockpitModel() {
+            while(scooterCockpitGroup.children.length > 0){ 
+                scooterCockpitGroup.remove(scooterCockpitGroup.children[0]); 
+            }
+
+            const cfg = scooterConfigs[currentModel];
+            const bodyMat = new THREE.MeshStandardMaterial({ color: cfg.color, roughness: 0.3, metalness: 0.8 });
+            const chromeMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.95, roughness: 0.1 });
+            const rubberMat = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.9 });
+            const displayMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const jeanMat = new THREE.MeshStandardMaterial({ color: 0x1d2d44, roughness: 0.8 });
+            const shoeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+
+            handlebarsMesh = new THREE.Group();
+            handlebarsMesh.position.set(0, -0.2, -0.65);
+
+            if (currentModel === 'thunder3') {
+                const stemL = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.9), bodyMat);
+                const stemR = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.9), bodyMat);
+                stemL.position.set(-0.09, -0.4, -0.1);
+                stemR.position.set(0.09, -0.4, -0.1);
+                stemL.rotation.x = 0.15;
+                stemR.rotation.x = 0.15;
+                handlebarsMesh.add(stemL, stemR);
+            } else {
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.9), bodyMat);
+                stem.position.set(0, -0.4, -0.1);
+                stem.rotation.x = 0.15;
+                handlebarsMesh.add(stem);
+            }
+
+            const barGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.85, 16);
+            barGeo.rotateZ(Math.PI / 2);
+            const bar = new THREE.Mesh(barGeo, bodyMat);
+            bar.position.set(0, 0.05, 0.05);
+            handlebarsMesh.add(bar);
+
+            const gripGeo = new THREE.CylinderGeometry(0.032, 0.032, 0.18, 12);
+            gripGeo.rotateZ(Math.PI / 2);
+            const leftGrip = new THREE.Mesh(gripGeo, rubberMat);
+            const rightGrip = new THREE.Mesh(gripGeo, rubberMat);
+            leftGrip.position.set(-0.38, 0.05, 0.05);
+            rightGrip.position.set(0.38, 0.05, 0.05);
+            handlebarsMesh.add(leftGrip, rightGrip);
+
+            const brakeGeo = new THREE.BoxGeometry(0.02, 0.08, 0.02);
+            const brakeLeft = new THREE.Mesh(brakeGeo, chromeMat);
+            const brakeRight = new THREE.Mesh(brakeGeo, chromeMat);
+            brakeLeft.position.set(-0.28, 0.02, 0.02);
+            brakeRight.position.set(0.28, 0.02, 0.02);
+            brakeLeft.rotation.z = 0.2;
+            brakeRight.rotation.z = -0.2;
+            handlebarsMesh.add(brakeLeft, brakeRight);
+
+            const throttle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.04), chromeMat);
+            throttle.position.set(0.22, 0.02, 0.05);
+            handlebarsMesh.add(throttle);
+
+            const displayCase = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.08), bodyMat);
+            displayCase.position.set(0, 0.08, 0.08);
+            const displayScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.09), displayMat);
+            displayScreen.position.set(0, 0.08, 0.039);
+            displayScreen.rotation.y = Math.PI;
+            handlebarsMesh.add(displayCase, displayScreen);
+
+            const headLightBeam = new THREE.SpotLight(0xffffff, 4, 60, Math.PI / 5, 0.4);
+            headLightBeam.position.set(0, -0.2, 0);
+            headLightBeam.target.position.set(0, -2, -25);
+            handlebarsMesh.add(headLightBeam);
+            handlebarsMesh.add(headLightBeam.target);
+
+            scooterCockpitGroup.add(handlebarsMesh);
+
+            const wheelGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.12, 24);
+            wheelGeo.rotateZ(Math.PI / 2);
+            frontWheelMesh = new THREE.Mesh(wheelGeo, rubberMat);
+            frontWheelMesh.position.set(0, -1.2, -0.7);
+            scooterCockpitGroup.add(frontWheelMesh);
+
+            riderLegMesh = new THREE.Group();
+            const legGeo = new THREE.CylinderGeometry(0.06, 0.05, 0.65, 12);
+            const leg = new THREE.Mesh(legGeo, jeanMat);
+            leg.position.set(0, -0.3, 0);
+            leg.rotation.x = -0.3;
+
+            const shoeGeo = new THREE.BoxGeometry(0.12, 0.1, 0.28);
+            const shoe = new THREE.Mesh(shoeGeo, shoeMat);
+            shoe.position.set(0, -0.6, -0.1);
+
+            riderLegMesh.add(leg, shoe);
+            riderLegMesh.position.set(0.28, -0.85, 0.3);
+            scooterCockpitGroup.add(riderLegMesh);
+        }
+
+        function buildHighway() {
+            const segLen = 50;
+            for (let i = 0; i < 8; i++) {
+                const seg = createRoadSegment(i * segLen);
+                roadSegments.push(seg);
+                scene.add(seg);
+            }
+        }
+
+        function createRoadSegment(zPos) {
+            const segment = new THREE.Group();
+            segment.position.z = zPos;
+
+            const roadGeo = new THREE.PlaneGeometry(16, 50);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x18202d, roughness: 0.7 });
+            const road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            road.receiveShadow = true;
+            segment.add(road);
+
+            const curbGeo = new THREE.BoxGeometry(0.5, 0.25, 50);
+            const curbMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, roughness: 0.3 });
+            const curbL = new THREE.Mesh(curbGeo, curbMat);
+            const curbR = new THREE.Mesh(curbGeo, curbMat);
+            curbL.position.set(-8.2, 0.12, 0);
+            curbR.position.set(8.2, 0.12, 0);
+            segment.add(curbL, curbR);
+
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            for (let z = -20; z < 25; z += 10) {
+                const l1 = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 4), lineMat);
+                const l2 = l1.clone();
+                l1.rotation.x = -Math.PI / 2;
+                l2.rotation.x = -Math.PI / 2;
+                l1.position.set(-2.5, 0.01, z);
+                l2.position.set(2.5, 0.01, z);
+                segment.add(l1, l2);
+            }
+
+            const bMat = new THREE.MeshStandardMaterial({ color: 0x0c1322, roughness: 0.4 });
+            for (let side of [-1, 1]) {
+                for (let b = -20; b <= 20; b += 14) {
+                    const h = 20 + Math.random() * 30;
+                    const bMesh = new THREE.Mesh(new THREE.BoxGeometry(10, h, 10), bMat);
+                    bMesh.position.set(side * (15 + Math.random() * 4), h / 2, b);
+                    segment.add(bMesh);
+                }
+            }
+
+            if (Math.random() > 0.3) spawnCoin(segment);
+            if (Math.random() > 0.4 && zPos > 30) spawnTrafficCar(segment);
+
+            return segment;
+        }
+
+        function spawnCoin(parent) {
+            const coin = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.4, 0.4, 0.08, 16),
+                new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.9, roughness: 0.1 })
+            );
+            const laneX = [-5, 0, 5][Math.floor(Math.random() * 3)];
+            coin.position.set(laneX, 0.6, (Math.random() - 0.5) * 30);
+            coin.rotation.x = Math.PI / 2;
+            parent.add(coin);
+            coinPickups.push(coin);
+        }
+
+        function spawnTrafficCar(parent) {
+            const car = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(2.2, 1.0, 4.5),
+                new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.3 })
+            );
+            body.position.y = 0.5;
+            car.add(body);
+
+            const laneX = [-5, 0, 5][Math.floor(Math.random() * 3)];
+            car.position.set(laneX, 0, (Math.random() - 0.5) * 30);
+            parent.add(car);
+            trafficVehicles.push(car);
+        }
+
+        function setupInputListeners() {
+            window.addEventListener('keydown', (e) => {
+                initAudio();
+                if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.up = true;
+                if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.down = true;
+                // Roblox Drive a Kukurin Style: A -> Links, D -> Rechts
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = true;
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = true;
+                if (e.code === 'Space') keys.space = true;
+                if (e.code === 'KeyH') playHornSound();
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.up = false;
+                if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.down = false;
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = false;
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = false;
+                if (e.code === 'Space') keys.space = false;
+            });
+
+            bindTouchBtn('btn-touch-gas', 'up');
+            bindTouchBtn('btn-touch-brake', 'down');
+            bindTouchBtn('btn-touch-left', 'left');
+            bindTouchBtn('btn-touch-right', 'right');
+            bindTouchBtn('btn-touch-wheelie', 'space');
+        }
+
+        function bindTouchBtn(id, key) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            
+            const handleStart = (e) => { 
+                e.preventDefault(); 
+                initAudio(); 
+                keys[key] = true; 
+            };
+            
+            const handleEnd = (e) => { 
+                e.preventDefault(); 
+                keys[key] = false; 
+            };
+
+            el.addEventListener('touchstart', handleStart, { passive: false });
+            el.addEventListener('touchend', handleEnd, { passive: false });
+            el.addEventListener('mousedown', handleStart);
+            el.addEventListener('mouseup', handleEnd);
+            el.addEventListener('mouseleave', handleEnd);
+        }
+
+        function updatePhysics(delta) {
+            if (gameState !== 'RACING') return;
+
+            const cfg = scooterConfigs[currentModel];
+            const maxSpeedMS = (cfg.baseSpeed + (cfg.upgrades.speedLvl - 1) * 20) / 3.6;
+            const accelRate = (cfg.accel + (cfg.upgrades.accelLvl - 1) * 0.4) * 16;
+
+            if (keys.up && batteryLevel > 0) {
+                currentSpeed = Math.min(maxSpeedMS, currentSpeed + accelRate * delta);
+                batteryLevel = Math.max(0, batteryLevel - delta * 0.35);
+            } else if (keys.down) {
+                currentSpeed = Math.max(-4, currentSpeed - accelRate * 2.5 * delta);
+            } else {
+                currentSpeed = THREE.MathUtils.lerp(currentSpeed, 0, delta * 1.5);
+            }
+
+            // Roblox "Drive a Kukurin" Arcade-Lenkphysik (A = Links / -X, D = Rechts / +X)
+            const maxSteer = 0.65;
+            if (keys.left) {
+                steerAngle = THREE.MathUtils.lerp(steerAngle, maxSteer, delta * 12);
+            } else if (keys.right) {
+                steerAngle = THREE.MathUtils.lerp(steerAngle, -maxSteer, delta * 12);
+            } else {
+                steerAngle = THREE.MathUtils.lerp(steerAngle, 0, delta * 14);
+            }
+
+            playerX -= steerAngle * (currentSpeed + 5) * delta * 0.85;
+            playerX = Math.max(-7, Math.min(7, playerX));
+
+            const moveDist = currentSpeed * delta;
+            distanceTraveled += moveDist;
+
+            roadSegments.forEach(seg => {
+                seg.position.z += moveDist;
+                if (seg.position.z > 40) {
+                    seg.position.z -= roadSegments.length * 50;
+                }
+            });
+
+            if (frontWheelMesh) {
+                frontWheelMesh.rotation.x -= (currentSpeed / 0.22) * delta;
+            }
+
+            updateWheeliePhysics(delta);
+            checkCollisions();
+
+            updateAudio();
+            updateHUD();
+        }
+
+        function updateWheeliePhysics(delta) {
+            const wheelieHud = document.getElementById('wheelie-hud');
+            const wheelieBar = document.getElementById('wheelie-balance-bar');
+
+            if (keys.space && currentSpeed > 4) {
+                isWheelieActive = true;
+                wheelieHud.classList.remove('opacity-0', 'scale-95');
+
+                wheelieAngle = THREE.MathUtils.lerp(wheelieAngle, 0.45, delta * 5);
+                wheelieBalance += (Math.random() - 0.5) * delta * 2.0;
+                if (keys.left) wheelieBalance -= delta * 1.4;
+                if (keys.right) wheelieBalance += delta * 1.4;
+                wheelieBalance = Math.max(-1, Math.min(1, wheelieBalance));
+
+                const percent = ((wheelieBalance + 1) / 2) * 100;
+                wheelieBar.style.left = `${percent}%`;
+
+                if (Math.abs(wheelieBalance) < 0.35) {
+                    gameScore += Math.floor(delta * 80);
+                } else if (Math.abs(wheelieBalance) > 0.85) {
+                    isWheelieActive = false;
+                    wheelieBalance = 0;
+                }
+            } else {
+                isWheelieActive = false;
+                wheelieAngle = THREE.MathUtils.lerp(wheelieAngle, 0, delta * 10);
+                wheelieBalance = THREE.MathUtils.lerp(wheelieBalance, 0, delta * 6);
+                wheelieHud.classList.add('opacity-0', 'scale-95');
+            }
+        }
+
+        function checkCollisions() {
+            const playerPos = new THREE.Vector3(playerX, 1.45, 0);
+            coinPickups.forEach((coin, index) => {
+                const worldPos = new THREE.Vector3();
+                coin.getWorldPosition(worldPos);
+                if (worldPos.distanceTo(playerPos) < 1.4) {
+                    playCoinSound();
+                    playerCoins += 15;
+                    gameScore += 250;
+                    coin.parent.remove(coin);
+                    coinPickups.splice(index, 1);
+                }
+            });
+        }
+
+        function updateCameraMotion() {
+            if (gameState === 'RACING') {
+                const time = clock.getElapsedTime();
+                const vibe = (currentSpeed > 2) ? Math.sin(time * 35) * (currentSpeed * 0.0005) : 0;
+                
+                camera.position.x = playerX;
+                camera.position.y = 1.45 + vibe + (wheelieAngle * 0.2);
+                camera.position.z = 0.2;
+
+                camera.rotation.x = wheelieAngle * 0.8;
+                camera.rotation.y = 0;
+                camera.rotation.z = steerAngle * 0.15;
+
+                if (riderLegMesh) {
+                    const balanceShift = (steerAngle * 0.25) + (wheelieBalance * 0.2);
+                    riderLegMesh.position.x = 0.28 + balanceShift;
+                    riderLegMesh.rotation.z = steerAngle * 0.4;
+                    riderLegMesh.rotation.x = -wheelieAngle * 0.5;
+                }
+            } else {
+                const t = clock.getElapsedTime() * 0.3;
+                camera.position.set(Math.sin(t) * 3, 1.6, Math.cos(t) * 3);
+                camera.lookAt(0, 1.2, 0);
+                camera.rotation.z = 0;
+            }
+        }
+
+        function selectScooter(key) {
+            currentModel = key;
+            document.querySelectorAll('.scooter-card').forEach(card => {
+                card.classList.remove('border-cyan-500', 'bg-cyan-950/30');
+                card.classList.add('border-transparent');
+                card.querySelector('.check-icon').classList.add('hidden');
+            });
+            const active = document.getElementById(`card-${key}`);
+            active.classList.remove('border-transparent');
+            active.classList.add('border-cyan-500', 'bg-cyan-950/30');
+            active.querySelector('.check-icon').classList.remove('hidden');
+
+            document.getElementById('selected-model-name').innerText = scooterConfigs[key].name.toUpperCase();
+            rebuildCockpitModel();
+            updateTuningUI();
+        }
+
+        function upgradeStat(stat) {
+            const cfg = scooterConfigs[currentModel];
+            let cost = (stat === 'speed') ? cfg.upgrades.speedLvl * 300 : cfg.upgrades.accelLvl * 200;
+            if (playerCoins >= cost) {
+                playerCoins -= cost;
+                if (stat === 'speed') cfg.upgrades.speedLvl++;
+                if (stat === 'accel') cfg.upgrades.accelLvl++;
+                updateTuningUI();
+            }
+        }
+
+        function setRGBColor(hex, name) {
+            scooterConfigs[currentModel].rgbColor = hex;
+            document.getElementById('rgb-mode-text').innerText = name;
+        }
+
+        function updateTuningUI() {
+            const cfg = scooterConfigs[currentModel];
+            document.getElementById('garage-coins').innerText = playerCoins.toLocaleString();
+            const topSpd = cfg.baseSpeed + (cfg.upgrades.speedLvl - 1) * 20;
+            document.getElementById('stat-speed-val').innerText = `${topSpd} km/h`;
+            document.getElementById('stat-speed-bar').style.width = `${Math.min(100, (topSpd / 150) * 100)}%`;
+            document.getElementById('cost-speed').innerText = `${cfg.upgrades.speedLvl * 300} Münzen`;
+
+            document.getElementById('stat-accel-val').innerText = `Stufe ${cfg.upgrades.accelLvl}`;
+            document.getElementById('stat-accel-bar').style.width = `${Math.min(100, cfg.upgrades.accelLvl * 30)}%`;
+            document.getElementById('cost-accel').innerText = `${cfg.upgrades.accelLvl * 200} Münzen`;
+        }
+
+        function startGame() {
+            gameState = 'RACING';
+            batteryLevel = 100;
+            distanceTraveled = 0;
+            currentSpeed = 0;
+            playerX = 0;
+            document.getElementById('garage-ui').classList.add('hidden');
+            document.getElementById('game-hud').classList.remove('hidden');
+            document.getElementById('game-hud').classList.add('flex');
+        }
+
+        function returnToGarage() {
+            gameState = 'GARAGE';
+            document.getElementById('game-hud').classList.add('hidden');
+            document.getElementById('game-hud').classList.remove('flex');
+            document.getElementById('garage-ui').classList.remove('hidden');
+            updateTuningUI();
+        }
+
+        function updateHUD() {
+            const kmh = Math.floor(Math.abs(currentSpeed) * 3.6);
+            document.getElementById('hud-speed').innerText = kmh;
+            document.getElementById('hud-coins').innerText = playerCoins.toLocaleString();
+            document.getElementById('hud-distance').innerText = `${Math.floor(distanceTraveled)} m`;
+            document.getElementById('hud-battery-text').innerText = `72V AKKU: ${Math.floor(batteryLevel)}%`;
+            document.getElementById('hud-battery-bar').style.width = `${batteryLevel}%`;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            updatePhysics(delta);
+            updateCameraMotion();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            initThree();
+            updateTuningUI();
+        };
+    </script>
+</body>
+</html>
